@@ -3,7 +3,7 @@
 
 ```mermaid
 flowchart TD
-    A["User in Cursor: Types prompt e.g., 'Implement UserCard from Figma'"] --> B["Cursor AI Agent: Parses prompt, identifies need for Figma data"]
+    A["User in Cursor or Claude Code: Types prompt e.g., 'Implement UserCard from Figma'"] --> B["AI Agent: Parses prompt, identifies need for Figma data"]
     B --> C["Agent Calls MCP Tool: get_frame_structure(frame_id)"]
     C --> D["MCP Server: Fetches from Figma REST API or Cache"]
     D --> E["Simplify Frame Hierarchy: Focus on Auto Layout props"]
@@ -16,7 +16,7 @@ flowchart TD
     F --> L["Agent Synthesizes: Combines structure & tokens"]
     K --> L
     L --> M["Generate Code: React/HTML with semantic classes, no hardcoding"]
-    M --> N["Output Code in Cursor"]
+    M --> N["Output Code in IDE / Terminal"]
     O["Design Changes: User says 'Figma updated, sync again'"] --> P["Agent Calls: sync_design_context() or refresh_cache"]
     P --> H
     subgraph "Agentic Loop"
@@ -27,7 +27,8 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["Client: Cursor AI Agent"] -->|"HTTP/WS"| B["MCP Server: Node.js with MCP SDK"]
+    A1["Client: Cursor AI Agent"] -->|"stdio"| B["MCP Server: Node.js with MCP SDK"]
+    A2["Client: Claude Code Agent"] -->|"stdio"| B
     B --> C["Tool Registry: sync_design_context, get_frame_structure, refresh_cache"]
     C --> D["Handlers: Dependency Injected"]
     D --> E["Modules: Extraction Engine (Figtree CLI)"]
@@ -45,6 +46,10 @@ flowchart TD
         D --> H
         D --> I
     end
+    subgraph "MCP Clients"
+        A1
+        A2
+    end
 ```
 
 --------------------
@@ -55,7 +60,7 @@ sequenceDiagram
     participant Cursor
     participant MCP
     participant Figma
-    User->>Cursor: Initial Setup: Provide Figma PAT, run figtree init
+    User->>Cursor: Initial Setup: Provide Figma PAT, configure .cursor/mcp.json
     User->>Cursor: Prompt: "Implement UserCard from Figma"
     Cursor->>MCP: Call get_frame_structure(frame_id)
     MCP->>Figma: REST API Fetch Frame (if not cached)
@@ -73,6 +78,34 @@ sequenceDiagram
     MCP->>MCP: Refresh Cache
     MCP-->>Cursor: Updated Tokens
     Cursor->>User: Regenerate Code
+```
+
+-------------------
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant ClaudeCode as Claude Code
+    participant MCP
+    participant Figma
+    User->>ClaudeCode: Initial Setup: claude mcp add figma-bridge, set FIGMA_PAT
+    User->>ClaudeCode: Prompt: "Implement UserCard from Figma"
+    ClaudeCode->>MCP: Call get_frame_structure(frame_id)
+    MCP->>Figma: REST API Fetch Frame (if not cached)
+    Figma-->>MCP: Frame Data
+    MCP->>MCP: Simplify & Cache
+    MCP-->>ClaudeCode: Simplified JSON
+    ClaudeCode->>MCP: Call sync_design_context()
+    MCP->>MCP: Figtree CLI Pull (if stale)
+    MCP->>MCP: Flatten, Map, Trim & Cache
+    MCP-->>ClaudeCode: Optimized Tokens JSON
+    ClaudeCode->>ClaudeCode: Synthesize & Generate Code
+    ClaudeCode-->>User: Display Generated Code
+    User->>ClaudeCode: "Figma updated, sync again"
+    ClaudeCode->>MCP: Call sync_design_context() or refresh_cache
+    MCP->>MCP: Refresh Cache
+    MCP-->>ClaudeCode: Updated Tokens
+    ClaudeCode->>User: Regenerate Code
 ```
 
 -------------------
